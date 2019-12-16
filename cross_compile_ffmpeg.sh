@@ -1462,7 +1462,8 @@ build_svt-vp9() {
 }
 
 build_vidstab() {
-  do_git_checkout https://github.com/georgmartius/vid.stab.git vid.stab_git
+  #do_git_checkout https://github.com/georgmartius/vid.stab.git vid.stab_git
+  do_git_checkout https://github.com/TouchMonkey/vid.stab.git vid.stab_git full_range_fixes
   cd vid.stab_git
     if [[ ! -f CMakeLists.txt.bak ]]; then # Change CFLAGS.
       sed -i.bak "s/O3/O2/;s/ -fPIC//" CMakeLists.txt
