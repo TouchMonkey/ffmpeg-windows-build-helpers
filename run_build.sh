@@ -7,6 +7,9 @@ SCRIPT_ARGS=""
 SCRIPT_ARGS="${SCRIPT_ARGS} --ffmpeg-git-checkout=https://github.com/TouchMonkey/FFmpeg.git"
 SCRIPT_ARGS="${SCRIPT_ARGS} --ffmpeg-git-checkout-version=vidstab_full_range"
 
+SCRIPT_ARGS="${SCRIPT_ARGS} --build-ffmpeg-static=y"
+
+#SCRIPT_ARGS="${SCRIPT_ARGS} --compiler-flavors=win64,win32"
 SCRIPT_ARGS="${SCRIPT_ARGS} --compiler-flavors=win64"
 
 #SCRIPT_ARGS="${SCRIPT_ARGS} --build-x264-with-libav=y"
@@ -20,9 +23,10 @@ SCRIPT_ARGS="${SCRIPT_ARGS} --disable-nonfree=n"
 #SCRIPT_ARGS="${SCRIPT_ARGS} --prefer-stable=n"
 SCRIPT_ARGS="${SCRIPT_ARGS} --prefer-stable=y"
 
-#SCRIPT_ARGS="${SCRIPT_ARGS} --gcc-cpu-count=4"
+SCRIPT_ARGS="${SCRIPT_ARGS} --gcc-cpu-count=4"
 
-#SCRIPT_ARGS="${SCRIPT_ARGS} --cflags=\"-march=broadwell -mtune=broadwell -O2 -ftree-vectorize\""
+#SCRIPT_ARGS="${SCRIPT_ARGS} --cflags=\"-mtune=generic -O2\""
+SCRIPT_ARGS="${SCRIPT_ARGS} --cflags=\"-march=native -O2\""
 
 
 echo ./cross_compile_ffmpeg.sh ${SCRIPT_ARGS} "$@"
