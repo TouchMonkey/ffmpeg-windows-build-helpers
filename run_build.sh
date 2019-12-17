@@ -26,7 +26,7 @@ SCRIPT_ARGS="${SCRIPT_ARGS} --gcc-cpu-count=${NUM_CORES}"
 CFLAGS_ARG="--cflags='-mtune=skylake -march=skylake -O2'"
 
 
-echo {SCRIPT_ARGS} "${CFLAGS_ARG}" "$@"
+echo ${SCRIPT_ARGS} "${CFLAGS_ARG}" "$@"
 ${SCRIPT_ARGS} "${CFLAGS_ARG}" "$@"
 retval=$?
 if [ ${retval} -ne 0 ]; then
@@ -38,7 +38,7 @@ fi
 SCRIPT_ARGS="${SCRIPT_ARGS} --high-bitdepth=y"
 
 
-echo {SCRIPT_ARGS} "${CFLAGS_ARG}" "$@"
+echo ${SCRIPT_ARGS} "${CFLAGS_ARG}" "$@"
 ${SCRIPT_ARGS} "${CFLAGS_ARG}" "$@"
 retval=$?
 if [ ${retval} -ne 0 ]; then
