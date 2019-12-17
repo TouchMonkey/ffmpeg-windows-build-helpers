@@ -19,14 +19,15 @@ SCRIPT_ARGS="${SCRIPT_ARGS} --disable-nonfree=n"
 
 SCRIPT_ARGS="${SCRIPT_ARGS} --prefer-stable=y"
 
-SCRIPT_ARGS="${SCRIPT_ARGS} --gcc-cpu-count=4"
+NUM_CORES="$(nproc --all)"
+SCRIPT_ARGS="${SCRIPT_ARGS} --gcc-cpu-count=${NUM_CORES}"
 
-#SCRIPT_ARGS="${SCRIPT_ARGS} \"--cflags='-march=native -O2'\""
+#CFLAGS_ARG="--cflags='-march=native -O2'"
+CFLAGS_ARG="--cflags='-mtune=skylake -march=skylake -O2'"
 
 
-echo ${SCRIPT_ARGS} "$@"
-#${SCRIPT_ARGS} "$@"
-${SCRIPT_ARGS} --cflags='-march=native -O2' "$@"
+echo {SCRIPT_ARGS} "${CFLAGS_ARG}" "$@"
+${SCRIPT_ARGS} "${CFLAGS_ARG}" "$@"
 retval=$?
 if [ ${retval} -ne 0 ]; then
 	echo "ERROR: Build failed with code $retval"
@@ -37,9 +38,8 @@ fi
 SCRIPT_ARGS="${SCRIPT_ARGS} --high-bitdepth=y"
 
 
-echo {SCRIPT_ARGS} "$@"
-#${SCRIPT_ARGS} "$@"
-${SCRIPT_ARGS} --cflags='-march=native -O2' "$@"
+echo {SCRIPT_ARGS} "${CFLAGS_ARG}" "$@"
+${SCRIPT_ARGS} "${CFLAGS_ARG}" "$@"
 retval=$?
 if [ ${retval} -ne 0 ]; then
 	echo "ERROR: Build failed with code $retval"
