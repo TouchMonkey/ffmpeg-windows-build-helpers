@@ -28,7 +28,7 @@ CFLAGS_ARG="--cflags='-mtune=generic -O2'"
 
 
 echo ${SCRIPT_ARGS} "${CFLAGS_ARG}" "$@"
-${SCRIPT_ARGS} "${CFLAGS_ARG}" "$@"
+nice -n 10 ${SCRIPT_ARGS} "${CFLAGS_ARG}" "$@"
 retval=$?
 if [ ${retval} -ne 0 ]; then
 	echo "ERROR: Build failed with code $retval"
@@ -40,7 +40,7 @@ SCRIPT_ARGS="${SCRIPT_ARGS} --high-bitdepth=y"
 
 
 echo ${SCRIPT_ARGS} "${CFLAGS_ARG}" "$@"
-${SCRIPT_ARGS} "${CFLAGS_ARG}" "$@"
+nice -n 10 ${SCRIPT_ARGS} "${CFLAGS_ARG}" "$@"
 retval=$?
 if [ ${retval} -ne 0 ]; then
 	echo "ERROR: Build failed with code $retval"
