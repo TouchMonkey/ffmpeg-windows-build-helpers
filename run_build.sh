@@ -22,8 +22,9 @@ SCRIPT_ARGS="${SCRIPT_ARGS} --prefer-stable=y"
 NUM_CORES="$(nproc --all)"
 SCRIPT_ARGS="${SCRIPT_ARGS} --gcc-cpu-count=${NUM_CORES}"
 
+CFLAGS_ARG="--cflags='-mtune=generic -O2'"
 #CFLAGS_ARG="--cflags='-march=native -O2'"
-CFLAGS_ARG="--cflags='-mtune=skylake -march=skylake -O2'"
+#CFLAGS_ARG="--cflags='-mtune=skylake -march=skylake -O2'"
 
 
 echo ${SCRIPT_ARGS} "${CFLAGS_ARG}" "$@"
