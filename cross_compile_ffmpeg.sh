@@ -50,7 +50,7 @@ check_missing_packages () {
     VENDOR="redhat"
   fi
   # zeranoe's build scripts use wget, though we don't here...
-  local check_packages=('ragel' 'curl' 'pkg-config' 'make' 'git' 'svn' 'gcc' 'autoconf' 'automake' 'yasm' 'cvs' 'flex' 'bison' 'makeinfo' 'g++' 'ed' 'hg' 'pax' 'unzip' 'patch' 'wget' 'xz' 'nasm' 'gperf' 'autogen' 'bzip2' 'realpath' 'meson')
+  local check_packages=('ragel' 'curl' 'pkg-config' 'make' 'git' 'svn' 'gcc' 'autoconf' 'automake' 'yasm' 'cvs' 'flex' 'bison' 'makeinfo' 'g++' 'ed' 'hg' 'pax' 'unzip' 'patch' 'wget' 'xz' 'nasm' 'gperf' 'autogen' 'bzip2' 'realpath' 'meson' 'clang' 'python')
   # autoconf-archive is just for leptonica FWIW
   # I'm not actually sure if VENDOR being set to centos is a thing or not. On all the centos boxes I can test on it's not been set at all.
   # that being said, if it where set I would imagine it would be set to centos... And this contition will satisfy the "Is not initially set"
@@ -79,13 +79,17 @@ check_missing_packages () {
     if [[ $DISTRO == "Ubuntu" ]]; then
       echo "for ubuntu:"
       echo "$ sudo apt-get update"
-      echo -n " $ sudo apt-get install subversion ragel curl texinfo g++ bison flex cvs yasm automake libtool autoconf gcc cmake git make pkg-config zlib1g-dev mercurial unzip pax nasm gperf autogen bzip2 autoconf-archive p7zip-full meson"
+      echo -n " $ sudo apt-get install subversion ragel curl texinfo g++ bison flex cvs yasm automake libtool autoconf gcc cmake git make pkg-config zlib1g-dev mercurial unzip pax nasm gperf autogen bzip2 autoconf-archive p7zip-full meson clang"
       if at_least_required_version "18.04" "$(lsb_release -rs)"; then
         echo -n " python3-distutils" # guess it's no longer built-in, lensfun requires it...
       fi
+      if at_least_required_version "20.04" "$(lsb_release -rs)"; then
+        echo -n " python-is-python3"  # needed
+      fi
       echo " -y"
     else
-      echo "for OS X (homebrew): brew install ragel wget cvs hg yasm autogen automake autoconf cmake libtool xz pkg-config nasm bzip2 autoconf-archive p7zip coreutils meson" # if edit this edit docker/Dockerfile also :|
+      echo "for OS X (homebrew): brew install ragel wget cvs hg yasm autogen automake autoconf cmake libtool xz pkg-config nasm bzip2 autoconf-archive p7zip coreutils meson llvm" # if edit this edit docker/Dockerfile also :|
+      echo "   and set llvm to your PATH if on catalina"
       echo "for debian: same as ubuntu, but also add libtool-bin, ed"
       echo "for RHEL/CentOS: First ensure you have epel repo available, then run $ sudo yum install ragel subversion texinfo mercurial libtool autogen gperf nasm patch unzip pax ed gcc-c++ bison flex yasm automake autoconf gcc zlib-devel cvs bzip2 cmake3 -y"
       echo "for fedora: if your distribution comes with a modern version of cmake then use the same as RHEL/CentOS but replace cmake3 with cmake."
@@ -791,7 +795,7 @@ build_intel_quicksync_mfx() { # i.e. qsv, disableable via command line switch...
 
 build_libleptonica() {
   build_libjpeg_turbo
-  do_git_checkout https://github.com/DanBloomberg/leptonica.git 
+  do_git_checkout https://github.com/DanBloomberg/leptonica.git leptonica_git 387d398138783222148a5866514ae9e4eda872a5
   cd leptonica_git
     generic_configure "--without-libopenjpeg" # never could quite figure out how to get it to work with jp2 stuffs...I think OPJ_STATIC or something, see issue for tesseract
     do_make_and_make_install
@@ -867,6 +871,21 @@ build_libopenjpeg() {
   cd ..
 }
 
+build_glew() {
+  download_and_unpack_file https://sourceforge.net/projects/glew/files/glew/2.1.0/glew-2.1.0.tgz glew-2.1.0
+  cd glew-2.1.0/build
+    do_cmake_from_build_dir ./cmake "-DWIN32=1 -DBUILD_SHARED_LIBS=0 " # "-DWITH_FFMPEG=0 -DOPENCV_GENERATE_PKGCONFIG=1 -DHAVE_DSHOW=0"
+    do_make_and_make_install
+  cd ../..
+}
+
+build_glfw() {
+  download_and_unpack_file https://github.com/glfw/glfw/releases/download/3.3/glfw-3.3.zip glfw-3.3
+  cd glfw-3.3
+    do_cmake_and_install
+  cd ..
+}
+
 build_libpng() {
   do_git_checkout https://github.com/glennrp/libpng.git
   cd libpng_git
@@ -889,13 +908,15 @@ build_harfbuzz() {
   # basically gleaned from https://gist.github.com/roxlu/0108d45308a0434e27d4320396399153
   if [ ! -f harfbuzz_git/already_done_harf ]; then # TODO make freetype into separate dirs so I don't need this weird double hack file...
     build_freetype "--without-harfbuzz"
-    do_git_checkout  https://github.com/harfbuzz/harfbuzz.git harfbuzz_git 8b6eb6cf465032d0ca747f4b75f6e9155082bc45
-    # cmake no .pc file :|
+    do_git_checkout  https://github.com/harfbuzz/harfbuzz.git harfbuzz_git
+    # cmake no .pc file so use configure :|
     cd harfbuzz_git
       if [ ! -f configure ]; then
         ./autogen.sh # :|
       fi
+      export LDFLAGS=-lpthread # :|
       generic_configure "--with-freetype=yes --with-fontconfig=no --with-icu=no" # no fontconfig, don't want another circular what? icu is #372
+      unset LDFLAGS
       do_make_and_make_install
     cd ..
   
@@ -903,8 +924,8 @@ build_harfbuzz() {
     touch harfbuzz_git/already_done_harf
     echo "done harfbuzz"
   fi
-  sed -i.bak 's/-lfreetype.*/-lfreetype -lharfbuzz/' "$PKG_CONFIG_PATH/freetype2.pc"
-  sed -i.bak 's/-lharfbuzz.*/-lharfbuzz -lfreetype/' "$PKG_CONFIG_PATH/harfbuzz.pc"
+  sed -i.bak 's/-lfreetype.*/-lfreetype -lharfbuzz -lpthread/' "$PKG_CONFIG_PATH/freetype2.pc" # for some reason it lists harfbuzz as Requires.private only??
+  sed -i.bak 's/-lharfbuzz.*/-lharfbuzz -lfreetype/' "$PKG_CONFIG_PATH/harfbuzz.pc" # does anything even use this?
   sed -i.bak 's/libfreetype.la -lbz2/libfreetype.la -lharfbuzz -lbz2/' "${mingw_w64_x86_64_prefix}/lib/libfreetype.la" # XXX what the..needed?
   sed -i.bak 's/libfreetype.la -lbz2/libfreetype.la -lharfbuzz -lbz2/' "${mingw_w64_x86_64_prefix}/lib/libharfbuzz.la"
 }
@@ -1294,14 +1315,13 @@ build_facebooktransform360() {
 
 build_libbluray() {
   unset JDK_HOME # #268 was causing failure
-  do_git_checkout https://git.videolan.org/git/libbluray.git
+  do_git_checkout https://code.videolan.org/videolan/libbluray.git
   cd libbluray_git
-    sed -i.bak 's_git://git.videolan.org/libudfread.git_https://git.videolan.org/git/libudfread.git_' .gitmodules
     if [[ ! -d .git/modules ]]; then
       git submodule update --init --remote # For UDF support [default=enabled], which strangely enough is in another repository.
     else
       local local_git_version=`git --git-dir=.git/modules/contrib/libudfread rev-parse HEAD`
-      local remote_git_version=`git ls-remote -h https://git.videolan.org/git/libudfread.git | sed "s/[[:space:]].*//"`
+      local remote_git_version=`git ls-remote -h https://code.videolan.org/videolan/libudfread.git | sed "s/[[:space:]].*//"`
       if [[ "$local_git_version" != "$remote_git_version" ]]; then
         echo "doing git clean -f"
         git clean -f # Throw away local changes; 'already_*' in this case.
@@ -1358,7 +1378,7 @@ build_libflite() {
 }
 
 build_libsnappy() {
-  do_git_checkout https://github.com/google/snappy.git snappy_git
+  do_git_checkout https://github.com/google/snappy.git snappy_git e9e11b84e629c3e06fbaa4f0a86de02ceb9d6992 # got weird failure once
   cd snappy_git
     do_cmake_and_install "-DBUILD_BINARY=OFF -DCMAKE_BUILD_TYPE=Release -DSNAPPY_BUILD_TESTS=OFF" # extra params from deadsix27 and from new cMakeLists.txt content
     rm -f $mingw_w64_x86_64_prefix/lib/libsnappy.dll.a # unintall shared :|
@@ -1515,7 +1535,7 @@ build_zvbi() {
 }
 
 build_fribidi() {
-  do_git_checkout https://github.com/fribidi/fribidi.git
+  do_git_checkout https://github.com/fribidi/fribidi.git fribidi_git edb58d3fbd99726673b821f708a99182928bd452
   cd fribidi_git
     cpu_count=1 # needed apparently with git master
     generic_configure "--disable-debug --disable-deprecated --disable-docs"
@@ -1731,9 +1751,9 @@ build_libx264() {
   checkout_dir="${checkout_dir}_all_bitdepth"
 
   if [[ $prefer_stable = "n" ]]; then
-    do_git_checkout "http://git.videolan.org/git/x264.git" $checkout_dir "origin/master" # During 'configure': "Found no assembler. Minimum version is nasm-2.13" so disable for now...
+    do_git_checkout "https://code.videolan.org/videolan/x264.git" $checkout_dir "origin/master" # During 'configure': "Found no assembler. Minimum version is nasm-2.13" so disable for now...
   else
-    do_git_checkout "http://git.videolan.org/git/x264.git" $checkout_dir  "origin/stable" # or "origin/stable" nasm again
+    do_git_checkout "https://code.videolan.org/videolan/x264.git" $checkout_dir  "origin/stable" # or "origin/stable" nasm again
   fi
   cd $checkout_dir
     if [[ ! -f configure.bak ]]; then # Change CFLAGS.
@@ -2090,20 +2110,16 @@ build_ffmpeg() {
     apply_patch file://$patch_dir/frei0r_load-shared-libraries-dynamically.diff
     if [ "$bits_target" != "32" ]; then
     #SVT-HEVC
-    wget https://raw.githubusercontent.com/OpenVisualCloud/SVT-HEVC/master/ffmpeg_plugin/0001-lavc-svt_hevc-add-libsvt-hevc-encoder-wrapper.patch
-    git apply 0001-lavc-svt_hevc-add-libsvt-hevc-encoder-wrapper.patch
+    git apply "../SVT-HEVC_git/ffmpeg_plugin/0001-lavc-svt_hevc-add-libsvt-hevc-encoder-wrapper.patch"
     #SVT-AV1 only
-    #wget https://raw.githubusercontent.com/OpenVisualCloud/SVT-AV1/master/ffmpeg_plugin/0001-Add-ability-for-ffmpeg-to-run-svt-av1.patch
-    #git apply 0001-Add-ability-for-ffmpeg-to-run-svt-av1.patch
+    #git apply "../SVT-AV1_git/ffmpeg_plugin/0001-Add-ability-for-ffmpeg-to-run-svt-av1.patch"
     #SVT-VP9 only
-    #wget https://raw.githubusercontent.com/OpenVisualCloud/SVT-VP9/master/ffmpeg_plugin/0001-Add-ability-for-ffmpeg-to-run-svt-vp9.patch
-    #git apply 0001-Add-ability-for-ffmpeg-to-run-svt-vp9.patch
+    #git apply "../SVT-VP9_git/ffmpeg_plugin/0001-Add-ability-for-ffmpeg-to-run-svt-vp9.patch"
+
     #Add SVT-AV1 to SVT-HEVC
-    #wget https://raw.githubusercontent.com/OpenVisualCloud/SVT-AV1/master/ffmpeg_plugin/0001-Add-ability-for-ffmpeg-to-run-svt-av1-with-svt-hevc.patch
-    #git apply 0001-Add-ability-for-ffmpeg-to-run-svt-av1-with-svt-hevc.patch
+    #git apply "../SVT-AV1_git/ffmpeg_plugin/0001-Add-ability-for-ffmpeg-to-run-svt-av1-with-svt-hevc.patch"
     #Add SVT-VP9 to SVT-HEVC & SVT-AV1
-    #wget https://raw.githubusercontent.com/OpenVisualCloud/SVT-VP9/master/ffmpeg_plugin/0001-Add-ability-for-ffmpeg-to-run-svt-vp9-with-svt-hevc-av1.patch
-    #git apply 0001-Add-ability-for-ffmpeg-to-run-svt-vp9-with-svt-hevc-av1.patch
+    #git apply "../SVT-VP9_git/ffmpeg_plugin/0001-Add-ability-for-ffmpeg-to-run-svt-vp9-with-svt-hevc-av1.patch"
     fi
     if [ "$bits_target" = "32" ]; then
       local arch=x86
@@ -2124,21 +2140,21 @@ build_ffmpeg() {
       init_options+=" --disable-schannel"
       # Fix WinXP incompatibility by disabling Microsoft's Secure Channel, because Windows XP doesn't support TLS 1.1 and 1.2, but with GnuTLS or OpenSSL it does.  XP compat!
     fi
-    config_options="$init_options --enable-libcaca --enable-gray --enable-libtesseract --enable-fontconfig --enable-gmp --enable-gnutls --enable-libass --enable-libbluray --enable-libbs2b --enable-libflite --enable-libfreetype --enable-libfribidi --enable-libgme --enable-libgsm --enable-libilbc --enable-libmodplug --enable-libmp3lame --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopus --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvo-amrwbenc --enable-libvorbis --enable-libwebp --enable-libzimg --enable-libzvbi --enable-libmysofa --enable-libopenjpeg  --enable-libopenh264 --enable-liblensfun  --enable-libvmaf --enable-libsrt --enable-demuxer=dash --enable-libxml2"
-    config_options+=" --enable-libdav1d"
+    config_options="$init_options --enable-libcaca --enable-gray --enable-libtesseract --enable-fontconfig --enable-gmp --enable-gnutls --enable-libass --enable-libbluray --enable-libbs2b --enable-libflite --enable-libfreetype --enable-libfribidi --enable-libgme --enable-libgsm --enable-libilbc --enable-libmodplug --enable-libmp3lame --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopus --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvo-amrwbenc --enable-libvorbis --enable-libwebp --enable-libzimg --enable-libzvbi --enable-libmysofa --enable-libopenjpeg  --enable-libopenh264 --enable-liblensfun  --enable-libvmaf --enable-libsrt --enable-demuxer=dash --enable-libxml2 --enable-opengl --enable-libdav1d --enable-cuda-llvm"
 
     if [ "$bits_target" != "32" ]; then
-      #SVT-HEVC [following line] must be disabled to use the other svt???  But there are patches that are supposed to combine to allow using all of them
-      config_options+=" --enable-libsvthevc"
+      #SVT-HEVC no longer needs to be disabled to configure with svt-av1, but svt-vp9 still conflicts with svt-av1 so svt-vp9 can only be compiled alone
+      #config_options+=" --enable-libsvthevc"
+      echo " not sure how to enable svthevc"
     fi
 
     #aom must be disabled to use SVT-AV1
     config_options+=" --enable-libaom"
-    #config_options+=" --enable-libsvtav1"
+    #config_options+=" --enable-libsvtav1" #not currently working but compiles if configured
 
-    #vpx and xvid must be disabled to use SVT-VP9
+    #libxvid must be disabled to use SVT-VP9 (26 lines below); working alongside libvpx was added in https://github.com/OpenVisualCloud/SVT-VP9/pull/71 so vpx no longer needs to be disabled
     config_options+=" --enable-libvpx"
-    #config_options+=" --enable-libsvtvp9" #not currently working
+    #config_options+=" --enable-libsvtvp9" #not currently working but compiles if configured
 
     if [[ $compiler_flavors != "native" ]]; then
       config_options+=" --enable-nvenc --enable-nvdec" # don't work OS X 
@@ -2161,7 +2177,7 @@ build_ffmpeg() {
       config_options+=" --disable-libmfx"
     fi
     if [[ $enable_gpl == 'y' ]]; then
-      config_options+=" --enable-gpl --enable-avisynth --enable-frei0r --enable-filter=frei0r --enable-librubberband --enable-libvidstab --enable-libx264 --enable-libx265"
+      config_options+=" --enable-gpl --enable-frei0r --enable-filter=frei0r --enable-librubberband --enable-libvidstab --enable-libx264 --enable-libx265"
       config_options+=" --enable-libxvid"
       if [[ $compiler_flavors != "native" ]]; then
         config_options+=" --enable-libxavs" # don't compile OS X 
@@ -2312,6 +2328,8 @@ build_ffmpeg_dependencies() {
   build_nv_headers
   build_libzimg # Uses dlfcn.
   build_libopenjpeg
+  build_glew
+  build_glfw
   #build_libjpeg_turbo # mplayer can use this, VLC qt might need it? [replaces libjpeg] (ffmpeg seems to not need it so commented out here)
   build_libpng # Needs zlib >= 1.0.4. Uses dlfcn.
   build_libwebp # Uses dlfcn.
@@ -2529,7 +2547,7 @@ while true; do
                  high_bitdepth=y; build_ffmpeg_static=y; build_ffmpeg_shared=y; build_lws=y;
                  disable_nonfree=n; git_get_latest=y; sandbox_ok=y; build_amd_amf=y; build_intel_qsv=y; 
                  build_dvbtee=y; build_x264_with_libav=y; shift ;;
-    -d         ) gcc_cpu_count=$cpu_count; disable_nonfree="y"; sandbox_ok="y"; compiler_flavors="win32"; git_get_latest="n"; shift ;;
+    -d         ) gcc_cpu_count=$cpu_count; disable_nonfree="y"; sandbox_ok="y"; compiler_flavors="win64"; git_get_latest="n"; shift ;;
     --compiler-flavors=* ) 
          compiler_flavors="${1#*=}"; 
          if [[ $compiler_flavors == "native" && $OSTYPE == darwin* ]]; then

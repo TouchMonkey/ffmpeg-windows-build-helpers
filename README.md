@@ -29,7 +29,7 @@ It should end up with a working, statically-built ffmpeg.exe binary within the "
 
 Another option instead of running `./cross_compile_ffmpeg.sh` is to run 
 
-    $ native_build/quick_cross_compile_ffmpeg_fdk_aac_and_x264_using_packaged_mingw64.sh script.
+    $ quick_build/quick_cross_compile_ffmpeg_fdk_aac_and_x264_using_packaged_mingw64.sh script.
 
 Note the "quick" part here which attempts to use the locally installed `mingw-w64` package from your distribution for the cross compiler, thus skipping the time-intensive cross-compiler toolchain build step.  It's not as well tested as running the normal one, however, which builds gcc from scratch.
 
@@ -98,6 +98,4 @@ Related projects (that do cross compiling with dependency libraries):
   mxe "m cross environment" https://github.com/mxe/mxe is a library for cross compiling many things, including FFmpeg I believe.
 
 [1] if you use a 512MB RAM droplet, make sure to first add some extra swap space: https://www.digitalocean.com/community/tutorials/how-to-add-swap-on-ubuntu-14-04 before starting.  
-Here's my digitalocean referral link in case you want it [you get $10 free credit] https://www.digitalocean.com/?refcode=b3030b559d17
-
-
+Here's my vultr referral link in case you want it [you get $100 free credit] https://www.vultr.com/?ref=8518257-6G
